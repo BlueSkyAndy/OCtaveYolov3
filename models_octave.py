@@ -77,15 +77,15 @@ class YOLOLayer(nn.Module):
 
         # Add offset and scale with anchors
         pred_boxes = FloatTensor(prediction[..., :4].shape)
-        pred_boxes[..., 0] = torch.sigmoid(x) + grid_x
-        pred_boxes[..., 1] = torch.sigmoid(y) + grid_y
-        # pred_boxes[..., 0] = x.data + grid_x
-        # pred_boxes[..., 1] = y.data + grid_y
-        pred_boxes[..., 2] = torch.exp(w) * anchor_w
-        pred_boxes[..., 3] = torch.exp(h) * anchor_h
+        # pred_boxes[..., 0] = torch.sigmoid(x) + grid_x
+        # pred_boxes[..., 1] = torch.sigmoid(y) + grid_y
+        pred_boxes[..., 0] = x.data + grid_x
+        pred_boxes[..., 1] = y.data + grid_y
+        # pred_boxes[..., 2] = torch.exp(w) * anchor_w
+        # pred_boxes[..., 3] = torch.exp(h) * anchor_h
         # change e to a small number -> 1.2, for fix pointed need
-        #pred_boxes[..., 2] = w.data * anchor_w
-        #pred_boxes[..., 3] = h.data * anchor_h
+        pred_boxes[..., 2] = w.data * anchor_w
+        pred_boxes[..., 3] = h.data * anchor_h
         # Training
         if targets is not None:
 
@@ -209,6 +209,8 @@ class YoloV3_Branch(nn.Module):
             layers.append(nn.Sequential(nn.LeakyReLU()))
 
         layers.append(nn.Sequential(nn.Conv2d(input_channel,output_channel,1,1)))
+        layers.append(nn.Sequential(nn.BatchNorm2d(output_channel)))
+        layers.append(nn.Sequential(nn.LeakyReLU()))
 
         return nn.Sequential(*layers)
 
@@ -226,6 +228,8 @@ class YoloV3_Branch(nn.Module):
 
         layers = []
         layers.append(nn.Sequential(nn.Conv2d(input_channel,output_channel,1)))
+        layers.append(nn.Sequential(nn.BatchNorm2d(output_channel)))
+        layers.append(nn.Sequential(nn.LeakyReLU()))
         layers.append(nn.Sequential(nn.UpsamplingNearest2d(scale_factor=2)))
 
         return nn.Sequential(*layers)
@@ -287,10 +291,10 @@ class BottleNeck(nn.Module):
         self.outplane = int(inplane/2)
         self.conv1 = Conv_BN_ACT(inplane,self.outplane,1,stride=1,padding=0,activation_layer= nn.LeakyReLU,
                                  alpha_in=0 if output else 0.5, alpha_out=0 if output else 0.5)
-        self.conv2 = Conv_BN_ACT(self.outplane,inplane,3,stride=1,padding=1,activation_layer= nn.LeakyReLU,
+        self.conv2 = Conv_BN(self.outplane,inplane,3,stride=1,padding=1,
                                  alpha_in=0 if output else 0.5, alpha_out=0 if output else 0.5)
 
-        self.relu = nn.LeakyReLU(0.1)
+        self.relu = nn.LeakyReLU()
 
         self.output = output
 
@@ -326,7 +330,7 @@ class DarkNetOctave(nn.Module):
         self.inplane = 32
         self.conv1 = nn.Conv2d(3, self.inplane, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(self.inplane)
-        self.relu1 = nn.LeakyReLU(0.1)
+        self.relu1 = nn.LeakyReLU(0.001)
 
         self.block_index = 1
         self.stride = 32 # downsample stride
